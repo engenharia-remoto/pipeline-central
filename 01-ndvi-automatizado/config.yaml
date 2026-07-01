@@ -3,10 +3,9 @@
 # =======================
 
 paths:
-  project_root: "C:/Users/Eng ASPIPP/OneDrive - aspipp/NDVI"
+  project_root: "."
   data_dir: "data"
-  output_dir: "C:/Users/Eng ASPIPP/Downloads"
-  # Colocar a pasta do associado
+  output_dir: "output"
   logs_dir: "logs"
 
 dataset:

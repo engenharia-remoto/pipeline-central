@@ -5,7 +5,7 @@
 # Objetivo: Gerar mapas NDVI por cod_imovel
 # Saída: PNG direto (com legenda)
 # Execução:
-# cd "C:\Users\Eng ASPIPP\OneDrive - aspipp\NDVI\scripts"
+# cd "C:\Users\Eng ASPIPP\OneDrive - aspipp\NDVI\pipeline-central\01-ndvi-automatizado>"
 # python NDVI.py -d 2026-05-01
 # Dados --- python NDVI.py -d 2026-02-17 -c SP-3535804-4268FFBED5C1491D82C7447A94BE7EAF 
 # ============================================================
@@ -25,88 +25,140 @@ import matplotlib.pyplot as plt
 # ------------------------------------------------------------
 # 1. Argumentos
 # ------------------------------------------------------------
-parser = argparse.ArgumentParser(description="Gerar NDVI por imóvel")
+
+parser = argparse.ArgumentParser(
+    description="Gerar NDVI por imóvel"
+)
 
 parser.add_argument(
-    "-d", "--date",
+    "-d",
+    "--date",
     required=False,
     help="Data de referência (YYYY-MM-DD)"
 )
 
 parser.add_argument(
-    "-c", "--cod",
+    "-c",
+    "--cod",
     required=False,
     help="Código do imóvel (cod_imovel)"
 )
 
 args = parser.parse_args()
+
 ref_date = args.date
 cod_filtro = args.cod
 
 # ------------------------------------------------------------
 # 2. Entrada interativa
 # ------------------------------------------------------------
+
 if not ref_date:
-    ref_date = input("📆 Escolha a data (YYYY-MM-DD): ")
+    ref_date = input(
+        "📆 Escolha a data (YYYY-MM-DD): "
+    ).strip()
 
 if not cod_filtro:
-    cod_filtro = input("🏡 Digite o código do imóvel: ")
+    cod_filtro = input(
+        "🏡 Digite o código do imóvel: "
+    ).strip()
 
-# Validação da data
 try:
     datetime.strptime(ref_date, "%Y-%m-%d")
 except ValueError:
-    sys.exit("❌ Data inválida. Use formato YYYY-MM-DD")
+    sys.exit(
+        "❌ Data inválida. Utilize YYYY-MM-DD"
+    )
 
 # ------------------------------------------------------------
 # 3. Earth Engine
 # ------------------------------------------------------------
+
 try:
-    ee.Initialize()
+    ee.Initialize(project="pipeline-central")
 except Exception:
     ee.Authenticate()
-    ee.Initialize()
+    ee.Initialize(project="pipeline-central")
 
 # ------------------------------------------------------------
-# 4. Config
+# 4. Configuração
 # ------------------------------------------------------------
+
 script_dir = Path(__file__).resolve().parent
+
+# raiz: pipeline-central
 project_root = script_dir.parent
-config_path = project_root / "config.yaml"
+
+# config está dentro de 01-ndvi-automatizado
+config_path = script_dir / "config.yaml"
 
 if not config_path.exists():
-    sys.exit("❌ config.yaml não encontrado")
+    sys.exit(
+        f"❌ config.yaml não encontrado: {config_path}"
+    )
 
 with open(config_path, "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
+# pasta compartilhada na raiz
 data_dir = project_root / config["paths"]["data_dir"]
+
+# pasta compartilhada de saída
 output_dir = project_root / config["paths"]["output_dir"]
-output_dir.mkdir(parents=True, exist_ok=True)
 
-imoveis_gpkg = data_dir / config["dataset"]["ndvi"]["file"]
-id_field = config["dataset"]["ndvi"]["id_field"]
+output_dir.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+imoveis_gpkg = (
+    data_dir /
+    config["dataset"]["ndvi"]["file"]
+)
+
+id_field = (
+    config["dataset"]["ndvi"]["id_field"]
+)
+
+if not imoveis_gpkg.exists():
+    sys.exit(
+        f"❌ Arquivo não encontrado: {imoveis_gpkg}"
+    )
+
+print(f"✅ Config: {config_path}")
+print(f"✅ Dados: {data_dir}")
+print(f"✅ GPKG: {imoveis_gpkg}")
+print(f"✅ Saída: {output_dir}")
 
 # ------------------------------------------------------------
-# 5. GeoPackage
+# 5. Ler GPKG
 # ------------------------------------------------------------
+
 gdf = gpd.read_file(imoveis_gpkg)
 
 if gdf.empty:
-    sys.exit("❌ GPKG vazio")
+    sys.exit("❌ GeoPackage vazio.")
 
 if id_field not in gdf.columns:
-    sys.exit(f"❌ Campo '{id_field}' não encontrado")
+    sys.exit(
+        f"❌ Campo '{id_field}' não encontrado."
+    )
 
 print(f"\n📦 {len(gdf)} imóveis carregados")
 
 # ------------------------------------------------------------
-# 6. Filtro por cod_imovel
+# 6. Filtrar imóvel
 # ------------------------------------------------------------
-gdf = gdf[gdf[id_field].astype(str) == str(cod_filtro)]
+
+gdf = gdf[
+    gdf[id_field].astype(str)
+    == str(cod_filtro)
+]
 
 if gdf.empty:
-    sys.exit(f"❌ cod_imovel '{cod_filtro}' não encontrado")
+    sys.exit(
+        f"❌ cod_imovel '{cod_filtro}' não encontrado."
+    )
 
 print(f"🔎 Imóvel selecionado: {cod_filtro}")
 print(f"📆 Data NDVI: {ref_date}")
@@ -114,39 +166,61 @@ print(f"📆 Data NDVI: {ref_date}")
 # ------------------------------------------------------------
 # 7. Janela temporal
 # ------------------------------------------------------------
+
 start_date = ee.Date(ref_date)
-end_date   = ee.Date(ref_date).advance(1, "day")
+end_date = ee.Date(ref_date).advance(1, "day")
 
 # ------------------------------------------------------------
-# 8. Funções EE
+# 8. Funções Earth Engine
 # ------------------------------------------------------------
 
 def mask_s2_clouds(img):
-    # Mascara QA60 (nuvem + cirrus)
+
     qa = img.select("QA60")
-    cloud = qa.bitwiseAnd(1 << 10).eq(0)
-    cirrus = qa.bitwiseAnd(1 << 11).eq(0)
-    
-    # Mascara adicional: pixels muito escuros (sombras fortes)
+
+    cloud = qa.bitwiseAnd(
+        1 << 10
+    ).eq(0)
+
+    cirrus = qa.bitwiseAnd(
+        1 << 11
+    ).eq(0)
+
     scl = img.select("SCL")
-    shadow = scl.neq(3)  # 3 = cloud shadow
-    
-    # Mascara adicional: remover nuvens médias e altas da SCL
-    mask_scl = scl.neq(9).And(scl.neq(8))  # 9 = cloud high, 8 = cloud medium
-    
-    # Combina tudo
-    mask = cloud.And(cirrus).And(shadow).And(mask_scl)
-    
+
+    shadow = scl.neq(3)
+
+    mask_scl = (
+        scl.neq(8)
+        .And(scl.neq(9))
+    )
+
+    mask = (
+        cloud
+        .And(cirrus)
+        .And(shadow)
+        .And(mask_scl)
+    )
+
     return img.updateMask(mask)
 
 
 def calcula_ndvi(collection):
-    return (
+
+    ndvi_collection = (
         collection
         .map(mask_s2_clouds)
-        .map(lambda img: img.addBands(
-            img.normalizedDifference(["B8", "B4"]).rename("NDVI")
-        ))
+        .map(
+            lambda img: img.addBands(
+                img.normalizedDifference(
+                    ["B8", "B4"]
+                ).rename("NDVI")
+            )
+        )
+    )
+
+    return (
+        ndvi_collection
         .qualityMosaic("NDVI")
         .select("NDVI")
     )
@@ -154,95 +228,132 @@ def calcula_ndvi(collection):
 # ------------------------------------------------------------
 # 9. Legenda
 # ------------------------------------------------------------
-def adicionar_legenda_ndvi(png_path, titulo):
+
+def adicionar_legenda_ndvi(
+        png_path,
+        titulo,
+        cloud_txt
+):
+
     img = Image.open(png_path)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(
+        figsize=(8, 8)
+    )
+
     ax.imshow(img)
     ax.axis("off")
 
     cmap = plt.get_cmap("RdYlGn")
-    norm = plt.Normalize(vmin=-0.3, vmax=0.75)
+
+    norm = plt.Normalize(
+        vmin=0.2,
+        vmax=0.8
+    )
 
     cbar = plt.colorbar(
-        plt.cm.ScalarMappable(norm=norm, cmap=cmap),
+        plt.cm.ScalarMappable(
+            norm=norm,
+            cmap=cmap
+        ),
         ax=ax,
         fraction=0.035,
         pad=0.04
     )
 
-    cbar.set_label("NDVI", fontsize=9)
-    cbar.ax.tick_params(labelsize=8)
-
-    ax.set_title(titulo, fontsize=11, pad=10)
-
-    plt.savefig(png_path, dpi=300, bbox_inches="tight")
-    plt.close()
-
-def adicionar_legenda_ndvi(png_path, titulo, cloud_txt):
-    img = Image.open(png_path)
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(img)
-    ax.axis("off")
-
-    cmap = plt.get_cmap("RdYlGn")
-    norm = plt.Normalize(vmin=0.2, vmax=0.8)
-
-    cbar = plt.colorbar(
-        plt.cm.ScalarMappable(norm=norm, cmap=cmap),
-        ax=ax,
-        fraction=0.035,
-        pad=0.04
+    cbar.set_label(
+        "NDVI",
+        fontsize=9
     )
 
-    cbar.set_label("NDVI", fontsize=9)
-    cbar.ax.tick_params(labelsize=8)
+    cbar.ax.tick_params(
+        labelsize=8
+    )
 
-    # ✅ título
-    ax.set_title(titulo, fontsize=11, pad=10)
+    ax.set_title(
+        titulo,
+        fontsize=11,
+        pad=10
+    )
 
-    # ✅ TEXTO DE NUVEM (novo)
     ax.text(
-        0.02, 0.02, cloud_txt,
+        0.02,
+        0.02,
+        cloud_txt,
         transform=ax.transAxes,
         fontsize=9,
         color="black",
-        bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
+        bbox=dict(
+            facecolor="white",
+            alpha=0.7,
+            edgecolor="none"
+        )
     )
 
-    plt.savefig(png_path, dpi=300, bbox_inches="tight")
+    plt.savefig(
+        png_path,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
     plt.close()
 
 # ------------------------------------------------------------
-# 10. Loop (agora só 1 imóvel)
+# 10. Processamento
 # ------------------------------------------------------------
+
 print("\n🌱 Gerando NDVI...\n")
 
-for row in tqdm(gdf.itertuples(), total=len(gdf)):
+for row in tqdm(
+    gdf.itertuples(),
+    total=len(gdf)
+):
 
     cod = getattr(row, id_field)
+
     geom = row.geometry
-    geom_ee = ee.Geometry(geom.__geo_interface__)
+
+    geom_ee = ee.Geometry(
+        geom.__geo_interface__
+    )
 
     collection = (
-        ee.ImageCollection(config["sentinel2"]["collection"])
+        ee.ImageCollection(
+            config["sentinel2"]["collection"]
+        )
         .filterBounds(geom_ee)
-        .filterDate(start_date, end_date)
+        .filterDate(
+            start_date,
+            end_date
+        )
     )
 
     n_img = collection.size().getInfo()
 
     if n_img == 0:
-        print(f"⚠️ {cod} → sem imagens")
+
+        print(
+            f"⚠️ {cod} → sem imagens"
+        )
+
         continue
 
-    # ✅ porcentagem de nuvem da DATA escolhida
-    cloud = collection.aggregate_min("CLOUDY_PIXEL_PERCENTAGE").getInfo()
-    cloud_txt = f"Nuvens (data): {cloud:.1f}%"
+    cloud = (
+        collection
+        .aggregate_min(
+            "CLOUDY_PIXEL_PERCENTAGE"
+        )
+        .getInfo()
+    )
 
-    # ✅ NDVI
-    ndvi = calcula_ndvi(collection).clip(geom_ee)
+    cloud_txt = (
+        f"Nuvens (data): {cloud:.1f}%"
+    )
+
+    ndvi = (
+        calcula_ndvi(collection)
+        .clip(geom_ee)
+    )
 
     ndvi_vis = ndvi.visualize(
         min=0.0,
@@ -255,8 +366,8 @@ for row in tqdm(gdf.itertuples(), total=len(gdf)):
             "#d9ef8b",
             "#a6d96a",
             "#66bd63",
-            "#1a9641",
-        ],
+            "#1a9641"
+        ]
     )
 
     url = ndvi_vis.getThumbURL({
@@ -265,22 +376,49 @@ for row in tqdm(gdf.itertuples(), total=len(gdf)):
         "format": "png"
     })
 
-    out_png = output_dir / f"NDVI_{cod}_{ref_date}.png"
+    out_png = (
+        output_dir /
+        f"NDVI_{cod}_{ref_date}.png"
+    )
 
     try:
-        response = requests.get(url, timeout=120)
+
+        response = requests.get(
+            url,
+            timeout=120
+        )
+
         response.raise_for_status()
 
-        with open(out_png, "wb") as f:
-            f.write(response.content)
+        with open(
+            out_png,
+            "wb"
+        ) as f:
+
+            f.write(
+                response.content
+            )
 
     except Exception as e:
-        print(f"❌ erro download {cod}: {e}")
+
+        print(
+            f"❌ erro download {cod}: {e}"
+        )
+
         continue
 
-    titulo = f"NDVI – {cod} – {ref_date}"
+    titulo = (
+        f"NDVI - {cod} - {ref_date}"
+    )
 
-    # ✅ PASSANDO A NUVEM PRA LEGENDA
-    adicionar_legenda_ndvi(out_png, titulo, cloud_txt)
+    adicionar_legenda_ndvi(
+        out_png,
+        titulo,
+        cloud_txt
+    )
 
-print("\n✅ Finalizado \n")
+    print(
+        f"✅ NDVI salvo: {out_png}"
+    )
+
+print("\n✅ Finalizado\n")
