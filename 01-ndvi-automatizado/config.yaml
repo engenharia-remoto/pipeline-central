@@ -1,0 +1,36 @@
+# =======================
+# CONFIG NDVI - Automatizado
+# =======================
+
+paths:
+  project_root: "C:/Users/Eng ASPIPP/OneDrive - aspipp/NDVI"
+  data_dir: "data"
+  output_dir: "C:/Users/Eng ASPIPP/Downloads"
+  # Colocar a pasta do associado
+  logs_dir: "logs"
+
+dataset:
+  verificacao:
+    file: "Sudoeste.gpkg" # Atualizar mensalmente, de acordo com PostgreSQL
+
+  ndvi:
+    file: "Sudoeste.gpkg"
+    id_field: "cod_imovel"
+
+temporal:
+  days_back: 260 # Escolha dos dias para trás a partir da data atual para análise de NDVI
+
+sentinel2:
+  collection: "COPERNICUS/S2_SR_HARMONIZED"
+  cloud_coverage_max: 50
+
+ndvi:
+  aggregation: "max" # Opção de agregação para cálculo do NDVI (ex: median, mean, max)
+
+output:
+  format: "png"
+  filename_pattern: "NDVI_{cod_imovel}_{date}.png"
+  crs: "EPSG:31983"
+
+runtime:
+  show_progress: true
