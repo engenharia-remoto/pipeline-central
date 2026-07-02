@@ -7,10 +7,8 @@
 # Objetivo: Verificar datas Sentinel-2 e nível de nuvem
 # Imovel: SP-3535804-4268FFBED5C1491D82C7447A94BE7EAF
 # ============================================================
-
 # pyright: reportPrivateImportUsage=false
 # ============================================================
-
 import ee
 import geopandas as gpd
 import yaml
@@ -32,16 +30,10 @@ except Exception:
 # ------------------------------------------------------------
 # 2. Caminhos e config.yaml
 # ------------------------------------------------------------
-# ------------------------------------------------------------
-# 2. Caminhos e config.yaml
-# ------------------------------------------------------------
 
 script_dir = Path(__file__).resolve().parent
+project_root = script_dir
 
-# raiz do projeto (pipeline-central)
-project_root = script_dir.parent
-
-# config.yaml fica junto do script
 config_path = script_dir / "config.yaml"
 
 if not config_path.exists():
@@ -50,8 +42,10 @@ if not config_path.exists():
 with open(config_path, "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
-# pasta data compartilhada na raiz do projeto
 data_dir = project_root / config["paths"]["data_dir"]
+
+reports_dir = project_root / config["paths"]["reports_dir"]
+reports_dir.mkdir(parents=True, exist_ok=True)
 
 region_gpkg = data_dir / config["dataset"]["verificacao"]["file"]
 
@@ -224,13 +218,36 @@ print("\n📅 Imagens Sentinel-2 disponíveis:\n")
 print(f"{'Data':<12} {'Nuvem (%)':<12} {'Imagens'}")
 print("-" * 36)
 
+relatorio = []
+
+relatorio.append("RELATÓRIO DE VERIFICAÇÃO DE IMAGENS")
+relatorio.append("=" * 50)
+relatorio.append(
+    f"Data da execução: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+)
+relatorio.append("")
+
+if opc == "2":
+    relatorio.append(f"Imóvel selecionado: {cod_imovel}")
+else:
+    relatorio.append("Consulta por região")
+
+relatorio.append(f"Total de imagens encontradas: {total}")
+relatorio.append("")
+relatorio.append(f"{'Data':<12} {'Nuvem (%)':<12} {'Imagens'}")
+relatorio.append("-" * 36)
+
 for r in results:
 
-    print(
+    linha = (
         f"{r['date']:<12} "
         f"{r['cloud']:<12.2f} "
         f"{r['scenes']}"
     )
+
+    print(linha)
+
+    relatorio.append(linha)
 
 best = results[0]
 
@@ -238,3 +255,36 @@ print("\n👉 Melhor data:")
 print(f"📆 {best['date']}")
 print(f"☁️ {best['cloud']:.2f}%")
 print(f"🛰️ {best['scenes']} cenas")
+
+relatorio.append("")
+relatorio.append("👉 Melhor data:")
+relatorio.append(f"📆 {best['date']}")
+relatorio.append(f"☁️ {best['cloud']:.2f}%")
+relatorio.append(f"🛰️ {best['scenes']} cenas")
+
+# ------------------------------------------------------------
+# 10. Salvar relatório
+# ------------------------------------------------------------
+
+data_execucao = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+if opc == "2":
+    nome_arquivo = (
+        f"{cod_imovel}_{data_execucao}.txt"
+    )
+else:
+    nome_arquivo = (
+        f"regiao_{data_execucao}.txt"
+    )
+
+arquivo_relatorio = reports_dir / nome_arquivo
+
+with open(
+    arquivo_relatorio,
+    "w",
+    encoding="utf-8"
+) as f:
+    f.write("\n".join(relatorio))
+
+print("\n📄 Relatório salvo com sucesso:")
+print(arquivo_relatorio)

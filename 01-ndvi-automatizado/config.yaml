@@ -6,7 +6,8 @@ paths:
   project_root: "."
   data_dir: "data"
   output_dir: "output"
-  logs_dir: "logs"
+  reports_dir: "reports"
+
 
 dataset:
   verificacao:
