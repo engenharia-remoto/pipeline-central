@@ -4,18 +4,12 @@ Pipeline de processamento geoespacial para análise de imóveis rurais utilizand
 
 ## Estrutura do Projeto
 pipeline-central/
-│
-├── 01-ndvi-automatizado/
-│   ├── data/
-│   ├── config.yaml
-│   ├── ndvi.py
-│   └── verificar_imagens.py
-│
-├── 02-merge-diario/ AMDAMENTO
-│
-├── 03-mapbiomas/ ANDAMENTO
-│
-├── .gitignore
-└── README.md
+ - 01-ndvi-automatizado/
+*data/
+*config.yaml
+*ndvi.py
+*verificar_imagens.py
+- 02-merge-diario/ AMDAMENTO
+- - 03-mapbiomas/ ANDAMENTO
 
 
