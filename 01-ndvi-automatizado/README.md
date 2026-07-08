@@ -1,4 +1,19 @@
 O processamento geoespacial para análise de imóveis rurais utilizando Google Earth Engine, Sentinel-2, NDVI e integração com bases vetoriais.
+
+Selecionar imóvel
+        ↓
+Consultar Sentinel-2
+        ↓
+Aplicar máscara de nuvens
+        ↓
+Calcular NDVI
+        ↓
+Gerar imagem temporária
+        ↓
+Visualização
+        ↓
+Exportação opcional
+
 ## Objetivos
 - Automatizar o cálculo de NDVI por imóvel rural.
 - Consultar imagens Sentinel-2 disponíveis em datas específicas.
