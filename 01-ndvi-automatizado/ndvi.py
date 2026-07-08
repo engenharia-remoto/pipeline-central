@@ -6,8 +6,8 @@
 # Saída: PNG direto (com legenda)
 # Execução:
 # cd "C:\Users\Eng ASPIPP\OneDrive - aspipp\NDVI\pipeline-central\01-ndvi-automatizado>"
-# python NDVI.py -d 2026-05-01
-# Dados --- python NDVI.py -d 2026-02-17 -c SP-3535804-4268FFBED5C1491D82C7447A94BE7EAF 
+# python ndvi.py -d 2026-05-01
+# Dados --- python ndvi.py -d 2026-02-17 -c SP-3535804-4268FFBED5C1491D82C7447A94BE7EAF 
 # ============================================================
 
 import ee
@@ -87,7 +87,7 @@ except Exception:
 script_dir = Path(__file__).resolve().parent
 
 # raiz: pipeline-central
-project_root = script_dir.parent
+project_root = script_dir
 
 # config está dentro de 01-ndvi-automatizado
 config_path = script_dir / "config.yaml"
@@ -376,10 +376,7 @@ for row in tqdm(
         "format": "png"
     })
 
-    out_png = (
-        output_dir /
-        f"NDVI_{cod}_{ref_date}.png"
-    )
+    temp_png = script_dir / "ndvi_temp.png"
 
     try:
 
@@ -391,7 +388,7 @@ for row in tqdm(
         response.raise_for_status()
 
         with open(
-            out_png,
+            temp_png,
             "wb"
         ) as f:
 
@@ -412,13 +409,13 @@ for row in tqdm(
     )
 
     adicionar_legenda_ndvi(
-        out_png,
+        temp_png,
         titulo,
         cloud_txt
     )
 
     print(
-        f"✅ NDVI salvo: {out_png}"
+        f"✅ Imagem temporária criada: {temp_png}"
     )
 
 print("\n✅ Finalizado\n")

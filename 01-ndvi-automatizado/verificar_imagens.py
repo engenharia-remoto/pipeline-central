@@ -9,6 +9,7 @@
 # ============================================================
 # pyright: reportPrivateImportUsage=false
 # ============================================================
+
 import ee
 import geopandas as gpd
 import yaml
